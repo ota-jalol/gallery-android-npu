@@ -39,6 +39,8 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.VolumeOff
+import androidx.compose.material.icons.rounded.VolumeUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -171,6 +173,9 @@ fun ChatView(
         },
       )
     },
+    floatingActionButton = {
+      TtsFloatingActionButton(viewModel = viewModel)
+    },
   ) { innerPadding ->
     Box {
       // val curSelectedModel = task.models[pageIndex]
@@ -264,6 +269,46 @@ fun ChatView(
         }
       }
     }
+  }
+}
+
+@Composable
+fun TtsFloatingActionButton(viewModel: ChatViewModel) {
+  // Only show TTS button for LlmChatViewModelBase instances
+  if (viewModel !is com.google.ai.edge.gallery.ui.llmchat.LlmChatViewModelBase) {
+    return
+  }
+  
+  val isTtsEnabled by viewModel.isTtsEnabled.collectAsState()
+  val isTtsSpeaking by viewModel.isTtsSpeaking.collectAsState()
+  val isTtsReady by viewModel.isTtsReady.collectAsState()
+  
+  // Only show FAB when TTS is ready
+  if (!isTtsReady) {
+    return
+  }
+  
+  androidx.compose.material3.FloatingActionButton(
+    onClick = {
+      if (isTtsSpeaking) {
+        viewModel.stopTts()
+      } else {
+        viewModel.toggleTtsEnabled()
+      }
+    },
+    containerColor = if (isTtsEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+    contentColor = if (isTtsEnabled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+  ) {
+    Icon(
+      imageVector = if (isTtsSpeaking) {
+        androidx.compose.material.icons.Icons.Rounded.VolumeOff
+      } else if (isTtsEnabled) {
+        androidx.compose.material.icons.Icons.Rounded.VolumeUp
+      } else {
+        androidx.compose.material.icons.Icons.Rounded.VolumeOff
+      },
+      contentDescription = if (isTtsEnabled) "Disable voice" else "Enable voice"
+    )
   }
 }
 

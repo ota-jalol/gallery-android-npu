@@ -90,6 +90,14 @@ fun ChatViewWrapper(
   val context = LocalContext.current
   val task = modelManagerViewModel.getTaskById(id = taskId)!!
 
+  // Initialize TTS when the composable enters the composition
+  androidx.compose.runtime.DisposableEffect(Unit) {
+    viewModel.initializeTTS(context)
+    onDispose {
+      viewModel.cleanupTts()
+    }
+  }
+
   ChatView(
     task = task,
     viewModel = viewModel,

@@ -40,6 +40,9 @@ import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 private const val TAG = "AGLlmChatViewModel"
 private val STATS =
@@ -51,6 +54,63 @@ private val STATS =
   )
 
 open class LlmChatViewModelBase() : ChatViewModel() {
+  private var ttsHelper: TextToSpeechHelper? = null
+  private val _isTtsEnabled = MutableStateFlow(false)
+  val isTtsEnabled: StateFlow<Boolean> = _isTtsEnabled.asStateFlow()
+  
+  private val _isTtsSpeaking = MutableStateFlow(false)
+  val isTtsSpeaking: StateFlow<Boolean> = _isTtsSpeaking.asStateFlow()
+  
+  private val _isTtsReady = MutableStateFlow(false)
+  val isTtsReady: StateFlow<Boolean> = _isTtsReady.asStateFlow()
+
+  fun initializeTTS(context: Context) {
+    if (ttsHelper == null) {
+      ttsHelper = TextToSpeechHelper(
+        context = context,
+        onInitialized = { success ->
+          _isTtsReady.value = success
+          if (success) {
+            Log.d(TAG, "TTS initialized successfully")
+          } else {
+            Log.e(TAG, "TTS initialization failed")
+          }
+        },
+        onSpeakingStateChanged = { isSpeaking ->
+          _isTtsSpeaking.value = isSpeaking
+        }
+      )
+    }
+  }
+
+  fun toggleTtsEnabled() {
+    _isTtsEnabled.value = !_isTtsEnabled.value
+    if (!_isTtsEnabled.value) {
+      stopTts()
+    }
+  }
+
+  fun speakText(text: String) {
+    if (_isTtsReady.value && _isTtsEnabled.value) {
+      ttsHelper?.speak(text)
+    }
+  }
+
+  fun stopTts() {
+    ttsHelper?.stop()
+  }
+
+  fun cleanupTts() {
+    ttsHelper?.shutdown()
+    ttsHelper = null
+    _isTtsReady.value = false
+    _isTtsSpeaking.value = false
+  }
+
+  override fun onCleared() {
+    super.onCleared()
+    cleanupTts()
+  }
   fun generateResponse(
     model: Model,
     input: String,
@@ -160,6 +220,12 @@ open class LlmChatViewModelBase() : ChatViewModel() {
                       accelerator = accelerator,
                     ),
                 )
+                
+                // Speak the AI response using TTS if enabled
+                val fullMessage = getLastMessage(model = model)
+                if (fullMessage is ChatMessageText && _isTtsEnabled.value) {
+                  speakText(fullMessage.content)
+                }
               }
             }
           },
