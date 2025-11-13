@@ -68,8 +68,8 @@ data class AllowedModel(
         val items = defaultConfig.accelerators.split(",")
         accelerators = mutableListOf()
         for (item in items) {
-          if (item == "cpu") {
-            accelerators.add(Accelerator.CPU)
+          if (item == "npu") {
+            accelerators.add(Accelerator.NPU)
           } else if (item == "gpu") {
             accelerators.add(Accelerator.GPU)
           }

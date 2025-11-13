@@ -68,16 +68,16 @@ object LlmChatModelHelper {
     val temperature =
       model.getFloatConfigValue(key = ConfigKeys.TEMPERATURE, defaultValue = DEFAULT_TEMPERATURE)
     val accelerator =
-      model.getStringConfigValue(key = ConfigKeys.ACCELERATOR, defaultValue = Accelerator.GPU.label)
+      model.getStringConfigValue(key = ConfigKeys.ACCELERATOR, defaultValue = Accelerator.NPU.label)
     Log.d(TAG, "Initializing...")
     val shouldEnableImage = supportImage
     val shouldEnableAudio = supportAudio
     Log.d(TAG, "Enable image: $shouldEnableImage, enable audio: $shouldEnableAudio")
     val preferredBackend =
       when (accelerator) {
-        Accelerator.CPU.label -> Backend.CPU
+        Accelerator.NPU.label -> Backend.NPU
         Accelerator.GPU.label -> Backend.GPU
-        else -> Backend.CPU
+        else -> Backend.NPU
       }
     Log.d(TAG, "Preferred backend: $preferredBackend")
 
@@ -86,8 +86,8 @@ object LlmChatModelHelper {
       EngineConfig(
         modelPath = modelPath,
         backend = preferredBackend,
-        visionBackend = if (shouldEnableImage) Backend.GPU else null, // must be GPU for Gemma 3n
-        audioBackend = if (shouldEnableAudio) Backend.CPU else null, // must be CPU for Gemma 3n
+        visionBackend = if (shouldEnableImage) Backend.GPU else null, // GPU for vision processing
+        audioBackend = if (shouldEnableAudio) Backend.NPU else null, // NPU for audio processing
         maxNumTokens = maxTokens,
         cacheDir =
           if (modelPath.startsWith("/data/local/tmp"))

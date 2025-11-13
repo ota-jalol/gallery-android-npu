@@ -17,6 +17,6 @@
 package com.google.ai.edge.gallery.data
 
 enum class Accelerator(val label: String) {
-  CPU(label = "CPU"),
+  NPU(label = "NPU"),
   GPU(label = "GPU"),
 }

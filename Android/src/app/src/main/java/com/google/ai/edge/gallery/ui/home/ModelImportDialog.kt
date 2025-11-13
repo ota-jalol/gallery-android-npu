@@ -126,8 +126,8 @@ private val IMPORT_CONFIGS_LLM: List<Config> =
     BooleanSwitchConfig(key = ConfigKeys.SUPPORT_AUDIO, defaultValue = false),
     SegmentedButtonConfig(
       key = ConfigKeys.COMPATIBLE_ACCELERATORS,
-      defaultValue = Accelerator.CPU.label,
-      options = listOf(Accelerator.CPU.label, Accelerator.GPU.label),
+      defaultValue = Accelerator.NPU.label,
+      options = listOf(Accelerator.NPU.label, Accelerator.GPU.label),
       allowMultiple = true,
     ),
   )
