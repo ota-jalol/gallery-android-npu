@@ -357,7 +357,7 @@ fun MessageInputText(
                 verticalAlignment = Alignment.CenterVertically,
               ) {
                 val enableAddImageMenuItems = (imageCount + pickedImages.size) < MAX_IMAGE_COUNT
-                val enableRecordAudioClipMenuItems =
+                val enableAddAudioMenuItems =
                   (audioClipMessageCount + pickedAudioClips.size) < MAX_AUDIO_CLIP_COUNT
                 DropdownMenu(
                   expanded = showAddContentMenu,
@@ -421,6 +421,7 @@ fun MessageInputText(
 
                   // Audio related menu items.
                   if (showAudioItemsInMenu) {
+                    // Move "Pick wav file" to appear before "Record audio clip".
                     DropdownMenuItem(
                       text = {
                         Row(
@@ -431,7 +432,7 @@ fun MessageInputText(
                           Text("Record audio clip")
                         }
                       },
-                      enabled = enableRecordAudioClipMenuItems,
+                      enabled = enableAddAudioMenuItems,
                       onClick = {
                         // Check permission
                         when (PackageManager.PERMISSION_GRANTED) {
@@ -463,7 +464,7 @@ fun MessageInputText(
                           Text("Pick wav file")
                         }
                       },
-                      enabled = enableRecordAudioClipMenuItems,
+                      enabled = enableAddAudioMenuItems,
                       onClick = {
                         showAddContentMenu = false
 
@@ -483,6 +484,39 @@ fun MessageInputText(
                               .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                           }
                         pickWav.launch(intent)
+                      },
+                    )
+
+                    // Record audio clip
+                    DropdownMenuItem(
+                      text = {
+                        Row(
+                          verticalAlignment = Alignment.CenterVertically,
+                          horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                          Icon(Icons.Rounded.Mic, contentDescription = null)
+                          Text("Record audio clip")
+                        }
+                      },
+                      enabled = enableAddAudioMenuItems,
+                      onClick = {
+                        // Check permission
+                        when (PackageManager.PERMISSION_GRANTED) {
+                          // Already got permission. Call the lambda.
+                          ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.RECORD_AUDIO,
+                          ) -> {
+                            handleClickRecordAudioClip()
+                          }
+
+                          // Otherwise, ask for permission
+                          else -> {
+                            recordAudioClipsPermissionLauncher.launch(
+                              Manifest.permission.RECORD_AUDIO
+                            )
+                          }
+                        }
                       },
                     )
                   }

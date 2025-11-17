@@ -48,6 +48,18 @@ typealias CleanUpListener = () -> Unit
 data class LlmModelInstance(val engine: Engine, var conversation: Conversation)
 
 object LlmChatModelHelper {
+  // Test hook: If non-null, test code can set this to intercept runInference calls and provide
+  // deterministic results. This avoids depending on the real `Engine` in instrumentation tests.
+  @JvmStatic
+  @kotlin.jvm.Volatile
+  var testInferenceHook:
+    ((model: com.google.ai.edge.gallery.data.Model,
+        input: String,
+        resultListener: ResultListener,
+        cleanUpListener: CleanUpListener,
+        onError: (String) -> Unit,
+        images: List<android.graphics.Bitmap>,
+        audioClips: List<ByteArray>) -> Unit)? = null
   // Indexed by model name.
   private val cleanUpListeners: MutableMap<String, CleanUpListener> = mutableMapOf()
 
@@ -86,8 +98,8 @@ object LlmChatModelHelper {
       EngineConfig(
         modelPath = modelPath,
         backend = preferredBackend,
-        visionBackend = if (shouldEnableImage) Backend.GPU else null, // GPU for vision processing
-        audioBackend = if (shouldEnableAudio) Backend.NPU else null, // NPU for audio processing
+        visionBackend = if (shouldEnableImage) Backend.GPU else null, // GPU for vision processing  
+        audioBackend = if (shouldEnableAudio) Backend.GPU else null, // GPU for audio processing (NPU not supported)
         maxNumTokens = maxTokens,
         cacheDir =
           if (modelPath.startsWith("/data/local/tmp"))
@@ -194,6 +206,12 @@ object LlmChatModelHelper {
     images: List<Bitmap> = listOf(),
     audioClips: List<ByteArray> = listOf(),
   ) {
+    // If a test hook is set, call it instead of running the real engine.
+    testInferenceHook?.let { hook ->
+      hook(model, input, resultListener, cleanUpListener, onError, images, audioClips)
+      return
+    }
+
     val instance = model.instance as LlmModelInstance
 
     // Set listener.
