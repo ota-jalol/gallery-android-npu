@@ -4,11 +4,14 @@ This directory contains GitHub Actions workflows for automated building and rele
 
 ## Available Workflows
 
+> **Note**: All workflows support manual triggering via `workflow_dispatch`. Go to Actions tab → Select workflow → Click "Run workflow" button.
+
 ### 1. Auto Merge to Production (`auto-merge-production.yaml`)
 
 **Triggers**: 
 - When a pull request is merged to `main`
 - When code is pushed directly to `main`
+- **Manual trigger**: Available in Actions tab
 
 **What it does**:
 - Automatically merges changes from `main` to `production` branch
@@ -20,7 +23,9 @@ This directory contains GitHub Actions workflows for automated building and rele
 
 ### 2. Build APK on Production Push (`production-build.yaml`)
 
-**Triggers**: Automatically runs when code is pushed to the `production` branch
+**Triggers**: 
+- Automatically runs when code is pushed to the `production` branch
+- **Manual trigger**: Available in Actions tab
 
 **What it does**:
 - Builds the release APK
@@ -34,6 +39,7 @@ This directory contains GitHub Actions workflows for automated building and rele
 **Triggers**: 
 - When a version tag is pushed (e.g., `v1.0.9`)
 - When code is pushed to `production` or `main` branch
+- **Manual trigger**: Available in Actions tab
 
 **What it does**:
 - Builds the release APK
@@ -55,6 +61,16 @@ This directory contains GitHub Actions workflows for automated building and rele
 - No artifacts uploaded
 
 **Use case**: CI checks for pull requests and main branch changes.
+
+## Viewing Workflows in GitHub
+
+**To see workflows in GitHub Actions tab:**
+1. Go to your repository on GitHub
+2. Click the "Actions" tab at the top
+3. You'll see all workflows listed on the left sidebar
+4. Workflows with `workflow_dispatch` can be run manually using "Run workflow" button
+
+**Note**: Workflows only appear in the Actions tab after they are merged to the default branch or when they are triggered by their configured events.
 
 ## Usage Guide
 

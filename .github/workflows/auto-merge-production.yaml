@@ -11,6 +11,12 @@ on:
     paths:
       - 'Android/**'
       - '.github/workflows/auto-merge-production.yaml'
+  workflow_dispatch:
+    inputs:
+      target_branch:
+        description: 'Target branch to merge to (default: production)'
+        required: false
+        default: 'production'
 
 jobs:
   auto-merge:
