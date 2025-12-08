@@ -1,0 +1,110 @@
+name: Auto Merge to Production
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+  push:
+    branches:
+      - main
+    paths:
+      - 'Android/**'
+      - '.github/workflows/auto-merge-production.yaml'
+
+jobs:
+  auto-merge:
+    name: Merge to Production Branch
+    # Only run if PR was merged (not just closed) or if direct push to main
+    if: github.event_name == 'push' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write
+      pull-requests: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      
+      - name: Fetch all branches
+        run: |
+          git fetch origin
+          git branch -a
+      
+      - name: Check if production branch exists
+        id: check_branch
+        run: |
+          if git ls-remote --heads origin production | grep production; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "✅ Production branch exists"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "⚠️ Production branch does not exist, will create it"
+          fi
+      
+      - name: Create production branch if needed
+        if: steps.check_branch.outputs.exists == 'false'
+        run: |
+          git checkout -b production
+          git push origin production
+          echo "✅ Created production branch"
+      
+      - name: Merge main to production
+        if: steps.check_branch.outputs.exists == 'true'
+        run: |
+          echo "🔄 Merging main branch to production..."
+          git checkout production || git checkout -b production origin/production
+          git merge origin/main -m "Auto-merge main to production [skip ci]" --no-ff
+          echo "✅ Merge completed successfully"
+      
+      - name: Push to production
+        run: |
+          echo "🚀 Pushing to production branch..."
+          git push origin production
+          echo "✅ Successfully pushed to production"
+      
+      - name: Create merge summary
+        run: |
+          echo "## 🎉 Auto-Merge to Production Successful!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Merge Information" >> $GITHUB_STEP_SUMMARY
+          echo "- **Source Branch**: main" >> $GITHUB_STEP_SUMMARY
+          echo "- **Target Branch**: production" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Triggered By**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            echo "- **PR**: #${{ github.event.pull_request.number }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **PR Title**: ${{ github.event.pull_request.title }}" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔔 Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "- Production build will be triggered automatically" >> $GITHUB_STEP_SUMMARY
+          echo "- Check the [production-build workflow](../../actions/workflows/production-build.yaml) for APK" >> $GITHUB_STEP_SUMMARY
+          echo "- To create a release, push a tag: \`git tag v1.0.x && git push origin v1.0.x\`" >> $GITHUB_STEP_SUMMARY
+      
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "## ❌ Auto-Merge to Production Failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Error Details" >> $GITHUB_STEP_SUMMARY
+          echo "The automatic merge to production branch failed." >> $GITHUB_STEP_SUMMARY
+          echo "This may be due to merge conflicts or other issues." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔧 Manual Resolution Required" >> $GITHUB_STEP_SUMMARY
+          echo "Please merge manually:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "git checkout production" >> $GITHUB_STEP_SUMMARY
+          echo "git merge main" >> $GITHUB_STEP_SUMMARY
+          echo "# Resolve conflicts if any" >> $GITHUB_STEP_SUMMARY
+          echo "git push origin production" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY

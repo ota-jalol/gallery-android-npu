@@ -4,7 +4,21 @@ This directory contains GitHub Actions workflows for automated building and rele
 
 ## Available Workflows
 
-### 1. Build APK on Production Push (`production-build.yaml`)
+### 1. Auto Merge to Production (`auto-merge-production.yaml`)
+
+**Triggers**: 
+- When a pull request is merged to `main`
+- When code is pushed directly to `main`
+
+**What it does**:
+- Automatically merges changes from `main` to `production` branch
+- Creates production branch if it doesn't exist
+- Handles merge conflicts gracefully
+- Triggers production build automatically
+
+**Use case**: Automated deployment pipeline - changes merged to main are automatically promoted to production branch.
+
+### 2. Build APK on Production Push (`production-build.yaml`)
 
 **Triggers**: Automatically runs when code is pushed to the `production` branch
 
@@ -15,7 +29,7 @@ This directory contains GitHub Actions workflows for automated building and rele
 
 **Use case**: Continuous integration for production branch - every push creates a build artifact that can be downloaded and tested.
 
-### 2. Build and Release APK (`release.yaml`)
+### 3. Build and Release APK (`release.yaml`)
 
 **Triggers**: 
 - When a version tag is pushed (e.g., `v1.0.9`)
@@ -29,7 +43,7 @@ This directory contains GitHub Actions workflows for automated building and rele
 
 **Use case**: Creating official releases with downloadable APKs for distribution.
 
-### 3. Build Android APK (`build_android.yaml`)
+### 4. Build Android APK (`build_android.yaml`)
 
 **Triggers**:
 - Pull requests to `main`
@@ -44,9 +58,33 @@ This directory contains GitHub Actions workflows for automated building and rele
 
 ## Usage Guide
 
+### Automated Deployment Pipeline (Recommended)
+
+**The easiest way** - merge to `main` branch:
+
+```bash
+# 1. Create a feature branch
+git checkout -b feature/my-changes
+
+# 2. Make your changes and commit
+git add .
+git commit -m "Add new feature"
+
+# 3. Push and create pull request
+git push origin feature/my-changes
+
+# 4. Merge PR to main (via GitHub UI)
+# ✅ Auto-merge workflow will automatically:
+#    - Merge main → production
+#    - Trigger production build
+#    - Create APK artifact
+```
+
+**Workflow**: `feature branch` → `main` (via PR) → `production` (auto) → `APK build` (auto)
+
 ### For Regular Development
 
-When you push changes to the `production` branch:
+When you push changes to the `production` branch manually:
 ```bash
 git checkout production
 git merge your-feature-branch
@@ -118,15 +156,39 @@ No secrets are required! The workflows use:
 
 ### Branch Protection (Recommended)
 
-Consider setting up branch protection for `production`:
+Consider setting up branch protection for `main` and `production`:
+
+**For `main` branch:**
 1. Go to Settings → Branches
-2. Add rule for `production` branch
+2. Add rule for `main` branch
 3. Enable:
    - ✅ Require pull request reviews
-   - ✅ Require status checks to pass
+   - ✅ Require status checks to pass (build_android workflow)
    - ✅ Include administrators
 
+**For `production` branch:**
+1. Add rule for `production` branch
+2. Enable:
+   - ✅ Require status checks to pass
+   - ⚠️ Do NOT require PR reviews (allows auto-merge from main)
+
 ## Troubleshooting
+
+### Auto-Merge Failed
+
+If the auto-merge to production fails:
+
+1. **Check for merge conflicts**:
+   ```bash
+   git checkout production
+   git pull
+   git merge main
+   # Resolve conflicts if any
+   git push origin production
+   ```
+
+2. **Check workflow logs**: Go to Actions tab → Auto Merge to Production
+3. **Verify permissions**: Ensure `GITHUB_TOKEN` has write access to production branch
 
 ### Build Fails
 
