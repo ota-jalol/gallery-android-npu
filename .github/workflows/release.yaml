@@ -36,28 +36,28 @@ jobs:
             exit 1
           fi
 
-          python - <<'PY'
-import re, pathlib
-file = pathlib.Path('app/build.gradle.kts')
-text = file.read_text()
+              python - <<'PY'
+              import re, pathlib
+              file = pathlib.Path('app/build.gradle.kts')
+              text = file.read_text()
 
-code_match = re.search(r"versionCode\s*=\s*(\d+)", text)
-name_match = re.search(r'versionName\s*=\s*"([0-9]+\.[0-9]+\.[0-9]+)"', text)
-if not code_match or not name_match:
-    raise SystemExit('versionCode/versionName not found in expected format')
-code = int(code_match.group(1))
-name = name_match.group(1)
+              code_match = re.search(r"versionCode\s*=\s*(\d+)", text)
+              name_match = re.search(r'versionName\s*=\s*"([0-9]+\.[0-9]+\.[0-9]+)"', text)
+              if not code_match or not name_match:
+                raise SystemExit('versionCode/versionName not found in expected format')
+              code = int(code_match.group(1))
+              name = name_match.group(1)
 
-major, minor, patch = map(int, name.split('.'))
-patch += 1
-new_name = f"{major}.{minor}.{patch}"
-new_code = code + 1
+              major, minor, patch = map(int, name.split('.'))
+              patch += 1
+              new_name = f"{major}.{minor}.{patch}"
+              new_code = code + 1
 
-text = re.sub(r"versionCode\s*=\s*\d+", f"versionCode = {new_code}", text)
-text = re.sub(r'versionName\s*=\s*"[0-9]+\.[0-9]+\.[0-9]+"', f'versionName = "{new_name}"', text)
-file.write_text(text)
-print(f"old_code={code}\nnew_code={new_code}\nold_name={name}\nnew_name={new_name}")
-PY
+              text = re.sub(r"versionCode\s*=\s*\d+", f"versionCode = {new_code}", text)
+              text = re.sub(r'versionName\s*=\s*"[0-9]+\.[0-9]+\.[0-9]+"', f'versionName = "{new_name}"', text)
+              file.write_text(text)
+              print(f"old_code={code}\nnew_code={new_code}\nold_name={name}\nnew_name={new_name}")
+        PY
 
           VERSION_CODE=$(grep -m1 "versionCode" "$FILE" | awk '{print $3}')
           VERSION_NAME=$(grep -m1 "versionName" "$FILE" | awk -F'"' '{print $2}')
