@@ -78,6 +78,9 @@ data class AllowedModel(
           }
         }
       }
+      if (accelerators.isEmpty()) {
+        accelerators = DEFAULT_ACCELERATORS
+      }
       configs =
         createLlmChatConfigs(
           defaultTopK = defaultTopK,

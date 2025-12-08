@@ -45,7 +45,11 @@ typealias ResultListener = (partialResult: String, done: Boolean) -> Unit
 
 typealias CleanUpListener = () -> Unit
 
-data class LlmModelInstance(val engine: Engine, var conversation: Conversation)
+data class LlmModelInstance(
+  val engine: Engine,
+  var conversation: Conversation,
+  val backendLabel: String,
+)
 
 object LlmChatModelHelper {
   // Indexed by model name.
@@ -73,73 +77,91 @@ object LlmChatModelHelper {
     val shouldEnableImage = supportImage
     val shouldEnableAudio = supportAudio
     Log.d(TAG, "Enable image: $shouldEnableImage, enable audio: $shouldEnableAudio")
-    val preferredBackend =
+    val nnapiBackend = resolveNnapiBackendOrNull()
+
+    val backendCandidates: List<Backend> =
       when (accelerator) {
-        Accelerator.CPU.label -> Backend.CPU
-        Accelerator.GPU.label -> Backend.GPU
-        Accelerator.NPU.label -> {
-          // Attempt to use NNAPI backend if available in LiteRT
-          try {
-            // Try to get NNAPI backend through reflection
-            val nnapiBackend = Backend::class.java.getDeclaredField("NNAPI").get(null) as? Backend
-            if (nnapiBackend != null) {
-              Log.d(TAG, "NPU acceleration enabled via NNAPI backend")
-              nnapiBackend
-            } else {
-              Log.w(TAG, "NNAPI backend field found but null, falling back to GPU")
-              Backend.GPU
-            }
-          } catch (e: NoSuchFieldException) {
-            // NNAPI backend not available in current LiteRT version
-            Log.w(TAG, "NNAPI backend not available in LiteRT ${e.message}, using GPU as fallback")
-            Backend.GPU
-          } catch (e: Exception) {
-            Log.e(TAG, "Error accessing NNAPI backend: ${e.message}, falling back to GPU")
-            Backend.GPU
-          }
-        }
-        else -> Backend.CPU
-      }
-    Log.d(TAG, "Preferred backend: $preferredBackend")
+        Accelerator.CPU.label -> listOf(Backend.CPU)
+        Accelerator.GPU.label -> listOf(Backend.GPU, Backend.CPU)
+        Accelerator.NPU.label -> listOfNotNull(nnapiBackend, Backend.GPU, Backend.CPU)
+        else -> listOf(Backend.CPU)
+      }.distinct()
 
     val modelPath = model.getPath(context = context)
-    val engineConfig =
-      EngineConfig(
-        modelPath = modelPath,
-        backend = preferredBackend,
-        visionBackend = if (shouldEnableImage) Backend.GPU else null, // must be GPU for Gemma 3n
-        audioBackend = if (shouldEnableAudio) Backend.CPU else null, // must be CPU for Gemma 3n
-        maxNumTokens = maxTokens,
-        cacheDir =
-          if (modelPath.startsWith("/data/local/tmp"))
-            context.getExternalFilesDir(null)?.absolutePath
-          else null,
-      )
 
-    // Create an instance of LiteRT LM engine and conversation.
-    try {
-      val engine = Engine(engineConfig)
-      engine.initialize()
-
-      val conversation =
-        engine.createConversation(
-          ConversationConfig(
-            samplerConfig =
-              SamplerConfig(
-                topK = topK,
-                topP = topP.toDouble(),
-                temperature = temperature.toDouble(),
-              ),
-            systemMessage = systemMessage,
-            tools = tools,
+    var lastError: Exception? = null
+    for (candidateBackend in backendCandidates) {
+      try {
+        val engineConfig =
+          EngineConfig(
+            modelPath = modelPath,
+            backend = candidateBackend,
+            visionBackend = if (shouldEnableImage) Backend.GPU else null, // must be GPU for Gemma 3n
+            audioBackend = if (shouldEnableAudio) Backend.CPU else null, // must be CPU for Gemma 3n
+            maxNumTokens = maxTokens,
+            cacheDir =
+              if (modelPath.startsWith("/data/local/tmp"))
+                context.getExternalFilesDir(null)?.absolutePath
+              else null,
           )
-        )
-      model.instance = LlmModelInstance(engine = engine, conversation = conversation)
-    } catch (e: Exception) {
-      onDone(cleanUpMediapipeTaskErrorMessage(e.message ?: "Unknown error"))
-      return
+
+        val engine = Engine(engineConfig)
+        engine.initialize()
+
+        val conversation =
+          engine.createConversation(
+            ConversationConfig(
+              samplerConfig =
+                SamplerConfig(
+                  topK = topK,
+                  topP = topP.toDouble(),
+                  temperature = temperature.toDouble(),
+                ),
+              systemMessage = systemMessage,
+              tools = tools,
+            )
+          )
+        val backendLabel = buildBackendLabel(candidateBackend, nnapiBackend)
+        Log.d(TAG, "Using backend: $backendLabel")
+        model.instance =
+          LlmModelInstance(engine = engine, conversation = conversation, backendLabel = backendLabel)
+        onDone("")
+        return
+      } catch (e: Exception) {
+        lastError = e
+        Log.w(TAG, "Failed to initialize backend $candidateBackend: ${e.message}")
+      }
     }
-    onDone("")
+
+    onDone(cleanUpMediapipeTaskErrorMessage(lastError?.message ?: "Unknown error"))
+  }
+
+  private fun resolveNnapiBackendOrNull(): Backend? {
+    return try {
+      val backendField = Backend::class.java.getDeclaredField("NNAPI")
+      val backend = backendField.get(null) as? Backend
+      if (backend == null) {
+        Log.w(TAG, "NNAPI backend field is null; treating as unavailable")
+      } else {
+        Log.d(TAG, "NNAPI backend detected in LiteRT")
+      }
+      backend
+    } catch (e: NoSuchFieldException) {
+      Log.w(TAG, "NNAPI backend not present in LiteRT: ${e.message}")
+      null
+    } catch (e: Exception) {
+      Log.w(TAG, "Failed to access NNAPI backend: ${e.message}")
+      null
+    }
+  }
+
+  private fun buildBackendLabel(backend: Backend, nnapiBackend: Backend?): String {
+    return when {
+      backend == Backend.CPU -> Accelerator.CPU.label
+      backend == Backend.GPU -> Accelerator.GPU.label
+      nnapiBackend != null && backend === nnapiBackend -> "${Accelerator.NPU.label} (NNAPI)"
+      else -> backend.toString()
+    }
   }
 
   fun resetConversation(

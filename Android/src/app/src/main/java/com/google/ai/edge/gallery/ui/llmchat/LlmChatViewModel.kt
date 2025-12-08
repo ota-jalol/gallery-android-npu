@@ -58,13 +58,11 @@ open class LlmChatViewModelBase() : ChatViewModel() {
     audioMessages: List<ChatMessageAudioClip> = listOf(),
     onError: (String) -> Unit,
   ) {
-    val accelerator = model.getStringConfigValue(key = ConfigKeys.ACCELERATOR, defaultValue = "")
+    val configuredAccelerator =
+      model.getStringConfigValue(key = ConfigKeys.ACCELERATOR, defaultValue = "")
     viewModelScope.launch(Dispatchers.Default) {
       setInProgress(true)
       setPreparing(true)
-
-      // Loading.
-      addMessage(model = model, message = ChatMessageLoading(accelerator = accelerator))
 
       // Wait for instance to be initialized.
       while (model.instance == null) {
@@ -72,8 +70,13 @@ open class LlmChatViewModelBase() : ChatViewModel() {
       }
       delay(500)
 
-      // Run inference.
       val instance = model.instance as LlmModelInstance
+      val acceleratorLabel = instance.backendLabel.ifEmpty { configuredAccelerator }
+
+      // Loading.
+      addMessage(model = model, message = ChatMessageLoading(accelerator = acceleratorLabel))
+
+      // Run inference.
       var prefillTokens = images.size * 257
       val audioClips: MutableList<ByteArray> = mutableListOf()
       for (audioMessage in audioMessages) {
@@ -122,7 +125,11 @@ open class LlmChatViewModelBase() : ChatViewModel() {
               addMessage(
                 model = model,
                 message =
-                  ChatMessageText(content = "", side = ChatSide.AGENT, accelerator = accelerator),
+                  ChatMessageText(
+                    content = "",
+                    side = ChatSide.AGENT,
+                    accelerator = acceleratorLabel,
+                  ),
               )
             }
 
@@ -157,7 +164,7 @@ open class LlmChatViewModelBase() : ChatViewModel() {
                         ),
                       running = false,
                       latencyMs = -1f,
-                      accelerator = accelerator,
+                      accelerator = acceleratorLabel,
                     ),
                 )
               }

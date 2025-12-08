@@ -34,6 +34,7 @@ import com.google.ai.edge.gallery.data.DataStoreRepository
 import com.google.ai.edge.gallery.data.DownloadRepository
 import com.google.ai.edge.gallery.data.EMPTY_MODEL
 import com.google.ai.edge.gallery.data.IMPORTS_DIR
+import com.google.ai.edge.gallery.data.DEFAULT_ACCELERATORS
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelAllowlist
 import com.google.ai.edge.gallery.data.ModelDownloadStatus
@@ -916,7 +917,7 @@ constructor(
           Accelerator.NPU.label -> Accelerator.NPU
           else -> null // Ignore unknown accelerator labels
         }
-      }
+      }.ifEmpty { DEFAULT_ACCELERATORS }
     val configs: List<Config> =
       createLlmChatConfigs(
         defaultMaxToken = info.llmConfig.defaultMaxTokens,

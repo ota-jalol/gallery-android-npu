@@ -57,6 +57,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Surface
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -130,6 +131,12 @@ fun ChatPanel(
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
   val messages = uiState.messagesByModel[selectedModel.name] ?: listOf()
   val streamingMessage = uiState.streamingMessagesByModel[selectedModel.name]
+  val acceleratorLabel =
+    remember(messages, streamingMessage) {
+      val streaming = streamingMessage?.accelerator ?: ""
+      val last = messages.reversed().firstOrNull { it.accelerator.isNotEmpty() }?.accelerator ?: ""
+      if (streaming.isNotEmpty()) streaming else last
+    }
   val snackbarHostState = remember { SnackbarHostState() }
   val scope = rememberCoroutineScope()
   val haptic = LocalHapticFeedback.current
@@ -267,6 +274,22 @@ fun ChatPanel(
     Column(
       modifier = modifier.padding(innerPadding).consumeWindowInsets(innerPadding).imePadding()
     ) {
+      if (acceleratorLabel.isNotEmpty()) {
+        Row(
+          modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+          horizontalArrangement = Arrangement.End,
+        ) {
+          Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.surfaceVariant) {
+            Text(
+              text = "Backend: $acceleratorLabel",
+              style = MaterialTheme.typography.labelMedium,
+              modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+          }
+        }
+      }
+
       Box(contentAlignment = Alignment.BottomCenter, modifier = Modifier.weight(1f)) {
         val cdChatPanel = stringResource(R.string.cd_chat_panel)
         LazyColumn(

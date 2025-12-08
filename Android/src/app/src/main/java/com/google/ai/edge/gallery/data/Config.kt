@@ -197,6 +197,8 @@ fun createLlmChatConfigs(
   defaultTemperature: Float = DEFAULT_TEMPERATURE,
   accelerators: List<Accelerator> = DEFAULT_ACCELERATORS,
 ): List<Config> {
+  val acceleratorOptions = accelerators.ifEmpty { DEFAULT_ACCELERATORS }.distinct()
+
   return listOf(
     LabelConfig(key = ConfigKeys.MAX_TOKENS, defaultValue = "$defaultMaxToken"),
     NumberSliderConfig(
@@ -222,8 +224,8 @@ fun createLlmChatConfigs(
     ),
     SegmentedButtonConfig(
       key = ConfigKeys.ACCELERATOR,
-      defaultValue = accelerators[0].label,
-      options = accelerators.map { it.label },
+      defaultValue = acceleratorOptions[0].label,
+      options = acceleratorOptions.map { it.label },
     ),
   )
 }
