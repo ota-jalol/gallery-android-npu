@@ -1,0 +1,129 @@
+name: Build and Release APK
+
+on:
+  push:
+    branches:
+      - production
+      - main
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-release:
+    name: Build APK and Create Release
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write
+    
+    defaults:
+      run:
+        working-directory: ./Android/src
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'
+      
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+      
+      - name: Get version from build.gradle.kts
+        id: get_version
+        run: |
+          VERSION_CODE=$(grep "versionCode" app/build.gradle.kts | awk '{print $3}')
+          VERSION_NAME=$(grep "versionName" app/build.gradle.kts | awk -F'"' '{print $2}')
+          echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
+          echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
+          echo "Version Code: $VERSION_CODE"
+          echo "Version Name: $VERSION_NAME"
+      
+      - name: Build Release APK
+        run: ./gradlew assembleRelease --stacktrace
+      
+      - name: Sign APK (optional)
+        id: sign_apk
+        run: |
+          APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" | head -1)
+          echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
+          echo "APK built at: $APK_PATH"
+          ls -lh "$APK_PATH"
+      
+      - name: Rename APK
+        run: |
+          APK_PATH="${{ steps.sign_apk.outputs.apk_path }}"
+          APK_DIR=$(dirname "$APK_PATH")
+          NEW_NAME="gallery-npu-v${{ steps.get_version.outputs.version_name }}-${{ steps.get_version.outputs.version_code }}.apk"
+          mv "$APK_PATH" "$APK_DIR/$NEW_NAME"
+          echo "renamed_apk_path=$APK_DIR/$NEW_NAME" >> $GITHUB_OUTPUT
+        id: rename_apk
+      
+      - name: Generate release tag
+        id: generate_tag
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            TAG_NAME="${{ github.ref_name }}"
+          else
+            TAG_NAME="v${{ steps.get_version.outputs.version_name }}"
+          fi
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "Release tag: $TAG_NAME"
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.generate_tag.outputs.tag_name }}
+          name: Release ${{ steps.generate_tag.outputs.tag_name }}
+          body: |
+            ## Gallery Android NPU - Release ${{ steps.generate_tag.outputs.tag_name }}
+            
+            ### What's New
+            - NPU (Neural Processing Unit) hardware acceleration support via NNAPI
+            - Improved inference performance on compatible devices
+            - User-selectable accelerator options (CPU/GPU/NPU)
+            
+            ### Version Information
+            - **Version**: ${{ steps.get_version.outputs.version_name }}
+            - **Version Code**: ${{ steps.get_version.outputs.version_code }}
+            - **Build Date**: ${{ github.event.head_commit.timestamp }}
+            - **Commit**: ${{ github.sha }}
+            
+            ### Installation
+            1. Download the APK file below
+            2. Enable "Install from Unknown Sources" in your Android device settings
+            3. Install the APK
+            4. Launch the app and enjoy NPU-accelerated AI inference!
+            
+            ### Requirements
+            - Android 12 (API 31) or higher
+            - NPU support requires Android API 27+ (optimal on API 29+)
+            - Device with NPU hardware for hardware acceleration
+            
+            ### Documentation
+            - [NPU Support Guide](https://github.com/${{ github.repository }}/blob/${{ steps.generate_tag.outputs.tag_name }}/NPU_SUPPORT.md)
+            - [Implementation Summary](https://github.com/${{ github.repository }}/blob/${{ steps.generate_tag.outputs.tag_name }}/IMPLEMENTATION_SUMMARY.md)
+            
+            ---
+            
+            **Full Changelog**: https://github.com/${{ github.repository }}/commits/${{ steps.generate_tag.outputs.tag_name }}
+          files: |
+            ${{ steps.rename_apk.outputs.renamed_apk_path }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Upload APK as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gallery-npu-apk-v${{ steps.get_version.outputs.version_name }}
+          path: ${{ steps.rename_apk.outputs.renamed_apk_path }}
+          retention-days: 90
