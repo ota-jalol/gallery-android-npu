@@ -43,26 +43,43 @@ jobs:
       
       - name: Build Release APK
         run: |
-          echo "🔨 Building release APK..."
+          echo "🔨 Building release APKs..."
           ./gradlew assembleRelease --stacktrace
       
-      - name: Find and rename APK
+      - name: List and rename APKs
         id: apk
         run: |
-          APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" | head -1)
-          APK_DIR=$(dirname "$APK_PATH")
-          NEW_NAME="gallery-npu-v${{ steps.version.outputs.version_name }}-build-${{ github.run_number }}.apk"
-          mv "$APK_PATH" "$APK_DIR/$NEW_NAME"
-          echo "apk_path=$APK_DIR/$NEW_NAME" >> $GITHUB_OUTPUT
-          echo "apk_name=$NEW_NAME" >> $GITHUB_OUTPUT
-          echo "✅ APK built: $NEW_NAME"
-          ls -lh "$APK_DIR/$NEW_NAME"
+          echo "📦 Renaming APK files..."
+          cd app/build/outputs/apk/release
+          
+          for apk in *.apk; do
+            base_name="gallery-npu-v${{ steps.version.outputs.version_name }}-build-${{ github.run_number }}"
+            if [[ $apk == *"universal"* ]]; then
+              new_name="${base_name}-universal.apk"
+            elif [[ $apk == *"armeabi-v7a"* ]]; then
+              new_name="${base_name}-armeabi-v7a.apk"
+            elif [[ $apk == *"arm64-v8a"* ]]; then
+              new_name="${base_name}-arm64-v8a.apk"
+            elif [[ $apk == *"x86_64"* ]]; then
+              new_name="${base_name}-x86_64.apk"
+            elif [[ $apk == *"x86"* ]]; then
+              new_name="${base_name}-x86.apk"
+            else
+              new_name="${base_name}-$apk"
+            fi
+            mv "$apk" "$new_name"
+            echo "✅ Renamed: $apk -> $new_name"
+            ls -lh "$new_name"
+          done
+          
+          echo "apk_dir=$(pwd)" >> $GITHUB_OUTPUT
+          echo "artifact_name=gallery-npu-apks-v${{ steps.version.outputs.version_name }}-build-${{ github.run_number }}" >> $GITHUB_OUTPUT
       
-      - name: Upload APK
+      - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.apk.outputs.apk_name }}
-          path: ${{ steps.apk.outputs.apk_path }}
+          name: ${{ steps.apk.outputs.artifact_name }}
+          path: Android/src/app/build/outputs/apk/release/*.apk
           retention-days: 30
       
       - name: Create build summary
@@ -76,8 +93,9 @@ jobs:
           echo "- **Commit**: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Branch**: \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📦 Artifact" >> $GITHUB_STEP_SUMMARY
-          echo "- **Name**: ${{ steps.apk.outputs.apk_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "- **Name**: ${{ steps.apk.outputs.artifact_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **APKs**: Universal + ABI-specific (arm64-v8a, armeabi-v7a, x86_64, x86)" >> $GITHUB_STEP_SUMMARY
           echo "- **Download**: Available in Actions artifacts" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🚀 Next Steps" >> $GITHUB_STEP_SUMMARY

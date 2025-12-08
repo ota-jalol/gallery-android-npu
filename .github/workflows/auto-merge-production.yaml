@@ -21,8 +21,11 @@ on:
 jobs:
   auto-merge:
     name: Merge to Production Branch
-    # Only run if PR was merged (not just closed) or if direct push to main
-    if: github.event_name == 'push' || github.event.pull_request.merged == true
+    # Only run if PR was merged (not just closed) or if direct push to main or manual trigger
+    if: |
+      github.event_name == 'push' || 
+      github.event_name == 'workflow_dispatch' || 
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
     runs-on: ubuntu-latest
     
     permissions:
@@ -69,7 +72,7 @@ jobs:
         run: |
           echo "🔄 Merging main branch to production..."
           git checkout production || git checkout -b production origin/production
-          git merge origin/main -m "Auto-merge main to production [skip ci]" --no-ff
+          git merge origin/main -m "Auto-merge main to production" --no-ff
           echo "✅ Merge completed successfully"
       
       - name: Push to production

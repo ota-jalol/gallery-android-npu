@@ -27,3 +27,15 @@ jobs:
           java-version: '21'
       - name: Build
         run: ./gradlew assembleRelease
+      
+      - name: List all APKs
+        run: |
+          echo "📦 Built APK files:"
+          find app/build/outputs/apk/release -name "*.apk" -exec ls -lh {} \;
+      
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apks
+          path: app/build/outputs/apk/release/*.apk
+          retention-days: 30

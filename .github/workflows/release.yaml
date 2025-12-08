@@ -50,22 +50,33 @@ jobs:
       - name: Build Release APK
         run: ./gradlew assembleRelease --stacktrace
       
-      - name: Sign APK (optional)
-        id: sign_apk
+      - name: List and Rename APKs
+        id: rename_apks
         run: |
-          APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" | head -1)
-          echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
-          echo "APK built at: $APK_PATH"
-          ls -lh "$APK_PATH"
-      
-      - name: Rename APK
-        run: |
-          APK_PATH="${{ steps.sign_apk.outputs.apk_path }}"
-          APK_DIR=$(dirname "$APK_PATH")
-          NEW_NAME="gallery-npu-v${{ steps.get_version.outputs.version_name }}-${{ steps.get_version.outputs.version_code }}.apk"
-          mv "$APK_PATH" "$APK_DIR/$NEW_NAME"
-          echo "renamed_apk_path=$APK_DIR/$NEW_NAME" >> $GITHUB_OUTPUT
-        id: rename_apk
+          echo "📦 Renaming APK files..."
+          cd app/build/outputs/apk/release
+          
+          # Rename each APK with version info
+          for apk in *.apk; do
+            if [[ $apk == *"universal"* ]]; then
+              new_name="gallery-npu-v${{ steps.get_version.outputs.version_name }}-universal.apk"
+            elif [[ $apk == *"armeabi-v7a"* ]]; then
+              new_name="gallery-npu-v${{ steps.get_version.outputs.version_name }}-armeabi-v7a.apk"
+            elif [[ $apk == *"arm64-v8a"* ]]; then
+              new_name="gallery-npu-v${{ steps.get_version.outputs.version_name }}-arm64-v8a.apk"
+            elif [[ $apk == *"x86_64"* ]]; then
+              new_name="gallery-npu-v${{ steps.get_version.outputs.version_name }}-x86_64.apk"
+            elif [[ $apk == *"x86"* ]]; then
+              new_name="gallery-npu-v${{ steps.get_version.outputs.version_name }}-x86.apk"
+            else
+              new_name="gallery-npu-v${{ steps.get_version.outputs.version_name }}-$apk"
+            fi
+            mv "$apk" "$new_name"
+            echo "✅ Renamed: $apk -> $new_name"
+            ls -lh "$new_name"
+          done
+          
+          echo "apk_dir=$(pwd)" >> $GITHUB_OUTPUT
       
       - name: Generate release tag
         id: generate_tag
@@ -116,15 +127,15 @@ jobs:
             
             **Full Changelog**: https://github.com/${{ github.repository }}/commits/${{ steps.generate_tag.outputs.tag_name }}
           files: |
-            ${{ steps.rename_apk.outputs.renamed_apk_path }}
+            Android/src/app/build/outputs/apk/release/*.apk
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
-      - name: Upload APK as artifact
+      - name: Upload APKs as artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: gallery-npu-apk-v${{ steps.get_version.outputs.version_name }}
-          path: ${{ steps.rename_apk.outputs.renamed_apk_path }}
+          name: gallery-npu-apks-v${{ steps.get_version.outputs.version_name }}
+          path: Android/src/app/build/outputs/apk/release/*.apk
           retention-days: 90
