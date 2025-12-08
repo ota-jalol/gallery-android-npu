@@ -77,6 +77,27 @@ object LlmChatModelHelper {
       when (accelerator) {
         Accelerator.CPU.label -> Backend.CPU
         Accelerator.GPU.label -> Backend.GPU
+        Accelerator.NPU.label -> {
+          // Attempt to use NNAPI backend if available in LiteRT
+          try {
+            // Try to get NNAPI backend through reflection
+            val nnapiBackend = Backend::class.java.getDeclaredField("NNAPI").get(null) as? Backend
+            if (nnapiBackend != null) {
+              Log.d(TAG, "NPU acceleration enabled via NNAPI backend")
+              nnapiBackend
+            } else {
+              Log.w(TAG, "NNAPI backend field found but null, falling back to GPU")
+              Backend.GPU
+            }
+          } catch (e: NoSuchFieldException) {
+            // NNAPI backend not available in current LiteRT version
+            Log.w(TAG, "NNAPI backend not available in LiteRT ${e.message}, using GPU as fallback")
+            Backend.GPU
+          } catch (e: Exception) {
+            Log.e(TAG, "Error accessing NNAPI backend: ${e.message}, falling back to GPU")
+            Backend.GPU
+          }
+        }
         else -> Backend.CPU
       }
     Log.d(TAG, "Preferred backend: $preferredBackend")
