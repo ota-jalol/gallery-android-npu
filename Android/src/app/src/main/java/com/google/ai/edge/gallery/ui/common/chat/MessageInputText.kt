@@ -488,37 +488,6 @@ fun MessageInputText(
                     )
 
                     // Record audio clip
-                    DropdownMenuItem(
-                      text = {
-                        Row(
-                          verticalAlignment = Alignment.CenterVertically,
-                          horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                          Icon(Icons.Rounded.Mic, contentDescription = null)
-                          Text("Record audio clip")
-                        }
-                      },
-                      enabled = enableAddAudioMenuItems,
-                      onClick = {
-                        // Check permission
-                        when (PackageManager.PERMISSION_GRANTED) {
-                          // Already got permission. Call the lambda.
-                          ContextCompat.checkSelfPermission(
-                            context,
-                            Manifest.permission.RECORD_AUDIO,
-                          ) -> {
-                            handleClickRecordAudioClip()
-                          }
-
-                          // Otherwise, ask for permission
-                          else -> {
-                            recordAudioClipsPermissionLauncher.launch(
-                              Manifest.permission.RECORD_AUDIO
-                            )
-                          }
-                        }
-                      },
-                    )
                   }
 
                   // Prompt templates.
