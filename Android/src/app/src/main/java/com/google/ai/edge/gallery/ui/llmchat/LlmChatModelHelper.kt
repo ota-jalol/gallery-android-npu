@@ -77,7 +77,12 @@ object LlmChatModelHelper {
       when (accelerator) {
         Accelerator.CPU.label -> Backend.CPU
         Accelerator.GPU.label -> Backend.GPU
-        Accelerator.NPU.label -> Backend.NNAPI
+        Accelerator.NPU.label -> {
+          // NPU support via NNAPI for LLMs is not yet available in LiteRT.
+          // Falling back to GPU which provides the best performance.
+          Log.d(TAG, "NPU selected but not directly supported by LiteRT, using GPU backend")
+          Backend.GPU
+        }
         else -> Backend.CPU
       }
     Log.d(TAG, "Preferred backend: $preferredBackend")

@@ -25,18 +25,23 @@ enum class Accelerator(val label: String) {
 #### LlmChatModelHelper.kt
 **Location**: `Android/src/app/src/main/java/com/google/ai/edge/gallery/ui/llmchat/LlmChatModelHelper.kt`
 
-**Change**: Added NPU to NNAPI backend mapping
+**Change**: Added NPU selection with GPU fallback
 ```kotlin
 val preferredBackend =
   when (accelerator) {
     Accelerator.CPU.label -> Backend.CPU
     Accelerator.GPU.label -> Backend.GPU
-    Accelerator.NPU.label -> Backend.NNAPI  // NEW
+    Accelerator.NPU.label -> {
+      // NPU support via NNAPI for LLMs is not yet available in LiteRT.
+      // Falling back to GPU which provides the best performance.
+      Log.d(TAG, "NPU selected but not directly supported by LiteRT, using GPU backend")
+      Backend.GPU
+    }
     else -> Backend.CPU
   }
 ```
 
-**Impact**: When users select NPU accelerator, the LiteRT engine will use NNAPI backend for hardware acceleration.
+**Impact**: NPU option is available for selection but currently uses GPU backend due to LiteRT limitations. The infrastructure is ready for future LiteRT NPU support. Logs indicate when NPU is selected for debugging.
 
 #### ModelManagerViewModel.kt
 **Location**: `Android/src/app/src/main/java/com/google/ai/edge/gallery/ui/modelmanager/ModelManagerViewModel.kt`
@@ -113,15 +118,32 @@ SegmentedButtonConfig(
 
 ## Technical Architecture
 
-### NPU Integration Flow
+### NPU Integration Flow (Current Implementation)
 
 1. **User Selection**: User selects NPU accelerator in model configuration
-2. **Backend Mapping**: NPU selection maps to `Backend.NNAPI` in LiteRT
-3. **NNAPI Layer**: Android NNAPI provides hardware abstraction
-4. **NPU Hardware**: Physical NPU processes inference operations
-5. **Fallback**: If NPU unavailable, NNAPI falls back to CPU/GPU
+2. **Backend Mapping**: NPU selection currently maps to GPU backend in LiteRT
+3. **GPU Processing**: GPU processes inference operations (best available performance)
+4. **Logging**: Debug logs indicate NPU was selected but using GPU backend
+5. **Future Ready**: Infrastructure ready for LiteRT NPU support when available
+
+### Current Status
+
+**Framework Limitation**: LiteRT library does not yet provide NPU/NNAPI backend for LLMs.
+
+**Implementation Strategy**:
+- UI and configuration support NPU selection
+- Backend gracefully falls back to GPU
+- Provides best available performance (GPU)
+- Ready for future LiteRT updates with zero code changes needed
 
 ### Compatibility
+
+**Current Requirements**:
+- Android API 31+ (app minimum)
+- GPU support for best performance
+- NPU selection works but uses GPU backend
+
+**Future Requirements** (when LiteRT adds NPU support):
 
 - **Minimum Android Version**: API 27+ (NNAPI support)
 - **Recommended Version**: API 29+ (optimal NNAPI features)

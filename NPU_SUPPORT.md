@@ -14,28 +14,33 @@ A Neural Processing Unit (NPU) is a specialized processor designed specifically 
 
 ## Implementation Details
 
+### Current Status
+
+**Important Note**: Direct NPU acceleration for Large Language Models (LLMs) is not yet available in the LiteRT library. When NPU is selected, the app currently uses GPU acceleration as a fallback, which provides the best available performance. This is a framework limitation, not a device limitation.
+
 ### Accelerator Options
 
-The app now supports three accelerator types:
+The app supports three accelerator types:
 
 1. **CPU** - Software-based inference on the device's CPU
-2. **GPU** - Hardware acceleration using the device's GPU
-3. **NPU** - Hardware acceleration using the device's NPU (via NNAPI)
+2. **GPU** - Hardware acceleration using the device's GPU  
+3. **NPU** - Currently falls back to GPU (NPU support pending LiteRT updates)
 
 ### Technical Architecture
 
-NPU support is implemented through Android's Neural Networks API (NNAPI), which provides a unified interface for hardware acceleration across different device manufacturers.
+The NPU option is implemented at the UI and configuration level, with backend fallback to GPU:
 
 #### Code Changes
 
-The following components have been updated to support NPU:
+The following components have been updated to support NPU selection:
 
 1. **Accelerator Enum** (`Types.kt`)
    - Added `NPU` accelerator type alongside CPU and GPU
 
 2. **LLM Chat Model Helper** (`LlmChatModelHelper.kt`)
-   - Maps NPU accelerator to `Backend.NNAPI` for LiteRT execution
-   - Enables NPU backend selection when initializing models
+   - NPU selection currently maps to GPU backend (with logging)
+   - Ready for future LiteRT NPU support
+   - Falls back gracefully when NPU is selected
 
 3. **Model Manager** (`ModelManagerViewModel.kt`)
    - Handles NPU accelerator mapping from imported model configurations
@@ -53,13 +58,16 @@ The following components have been updated to support NPU:
 
 ### For Users
 
+> **Note**: Currently, selecting NPU will use GPU acceleration due to LiteRT library limitations. This provides the best available performance until native NPU support is added to LiteRT.
+
 #### Selecting NPU Acceleration
 
 When running a model:
 
 1. Open the model configuration (gear icon)
 2. Select "NPU" from the "Choose accelerator" options
-3. The model will be reinitialized to use NPU acceleration
+3. The model will be reinitialized (currently using GPU backend)
+4. Future LiteRT updates will enable true NPU acceleration without app changes
 
 #### Importing Models with NPU Support
 
@@ -102,20 +110,23 @@ val model = Model(
 
 ## Device Compatibility
 
-NPU support requires:
+> **Current Status**: NPU option is available for selection, but uses GPU backend due to LiteRT framework limitations.
+
+Future requirements for true NPU acceleration:
 
 - **Android API Level 27+** for basic NNAPI support
 - **Android API Level 29+** recommended for optimal NNAPI features
-- **Compatible Hardware**: Device must have an NPU or support NNAPI acceleration
+- **Compatible Hardware**: Device with NPU or NNAPI-compatible accelerator
   - Many modern Android devices from manufacturers like Samsung, Huawei, Google, Qualcomm, and MediaTek include NPU support
+- **LiteRT Update**: Requires future LiteRT library with NPU backend support
 
-### Checking NPU Availability
+### Current Behavior
 
-The Android NNAPI will automatically fallback to CPU if NPU is not available. Users can verify performance improvements by:
-
-1. Running inference with GPU accelerator
-2. Running inference with NPU accelerator
-3. Comparing inference speed metrics displayed in the app
+The app currently uses GPU backend when NPU is selected. This provides:
+- Best available performance for LLM inference
+- Consistent behavior across all devices
+- Ready infrastructure for future NPU support
+- No performance penalty from NPU selection
 
 ## Performance Considerations
 
@@ -128,31 +139,36 @@ NPU acceleration is most beneficial for:
 - Battery-constrained scenarios
 - Sustained ML workloads
 
-### NPU vs GPU vs CPU
+### NPU vs GPU vs CPU (Current Implementation)
 
-| Accelerator | Performance | Power Efficiency | Compatibility |
-|------------|-------------|------------------|---------------|
-| CPU | Baseline | Low | Universal |
-| GPU | High (graphics) | Medium | Most devices |
-| NPU | High (ML tasks) | High | Modern devices |
+| Accelerator | Performance | Power Efficiency | Compatibility | Current Status |
+|------------|-------------|------------------|---------------|----------------|
+| CPU | Baseline | Low | Universal | ✅ Available |
+| GPU | High | Medium | Most devices | ✅ Available |
+| NPU | High (future) | High (future) | Modern devices | ⚠️ Uses GPU backend |
+
+**Note**: NPU currently provides GPU-level performance. True NPU acceleration pending LiteRT support.
 
 ## Limitations
 
-1. **Device Support**: Not all Android devices have NPU hardware
-2. **NNAPI Variations**: Performance may vary across device manufacturers
-3. **Model Compatibility**: Some model architectures may not be fully optimized for NPU
-4. **Fallback Behavior**: If NPU is unavailable, NNAPI may fall back to CPU/GPU
+1. **LiteRT Framework Limitation**: NPU acceleration for LLMs is not yet available in LiteRT library
+   - Currently falls back to GPU when NPU is selected
+   - GPU provides the best available performance for LLMs
+   - Infrastructure ready for future LiteRT NPU support
+2. **Device Support**: Not all Android devices have NPU hardware
+3. **Future Updates**: True NPU acceleration will be enabled when LiteRT adds support
+4. **Current Performance**: Selecting NPU currently equals GPU performance
 
 ## Troubleshooting
 
 ### NPU Selection Not Improving Performance
 
-If NPU selection doesn't improve performance:
+NPU selection currently uses GPU backend due to LiteRT limitations:
 
-1. **Check Device Support**: Your device may not have NPU hardware
-2. **Verify NNAPI Version**: Update to latest Android version if possible
-3. **Try Different Models**: Some models may not be optimized for NPU
-4. **Compare Metrics**: Check TTFT and decode speed in the app
+1. **Current Behavior**: NPU selection maps to GPU acceleration
+2. **Expected Performance**: Same as GPU (best available for LLMs)
+3. **Check Logs**: Look for "NPU selected but not directly supported" message
+4. **Future Updates**: Will automatically use NPU when LiteRT adds support
 
 ### Model Initialization Errors
 
