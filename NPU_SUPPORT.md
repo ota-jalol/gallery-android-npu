@@ -16,7 +16,15 @@ A Neural Processing Unit (NPU) is a specialized processor designed specifically 
 
 ### Current Status
 
-**Important Note**: Direct NPU acceleration for Large Language Models (LLMs) is not yet available in the LiteRT library. When NPU is selected, the app currently uses GPU acceleration as a fallback, which provides the best available performance. This is a framework limitation, not a device limitation.
+**NNAPI Detection**: The app now attempts to use NNAPI backend for NPU acceleration. The implementation uses reflection to detect if NNAPI is available in the LiteRT library:
+
+- If NNAPI backend is found: NPU acceleration via NNAPI is enabled
+- If NNAPI is not available: Falls back to GPU (best available performance)
+
+This approach ensures:
+- Forward compatibility with future LiteRT versions that add NNAPI support
+- Graceful degradation to GPU when NNAPI is unavailable
+- Detailed logging for debugging and troubleshooting
 
 ### Accelerator Options
 
@@ -24,11 +32,11 @@ The app supports three accelerator types:
 
 1. **CPU** - Software-based inference on the device's CPU
 2. **GPU** - Hardware acceleration using the device's GPU  
-3. **NPU** - Currently falls back to GPU (NPU support pending LiteRT updates)
+3. **NPU** - Attempts NNAPI, falls back to GPU if unavailable
 
 ### Technical Architecture
 
-The NPU option is implemented at the UI and configuration level, with backend fallback to GPU:
+The NPU implementation uses runtime reflection to detect NNAPI backend availability:
 
 #### Code Changes
 
@@ -38,9 +46,10 @@ The following components have been updated to support NPU selection:
    - Added `NPU` accelerator type alongside CPU and GPU
 
 2. **LLM Chat Model Helper** (`LlmChatModelHelper.kt`)
-   - NPU selection currently maps to GPU backend (with logging)
-   - Ready for future LiteRT NPU support
-   - Falls back gracefully when NPU is selected
+   - Uses reflection to detect NNAPI backend in LiteRT
+   - Attempts to use NNAPI when NPU is selected
+   - Falls back to GPU if NNAPI unavailable
+   - Comprehensive logging for each scenario
 
 3. **Model Manager** (`ModelManagerViewModel.kt`)
    - Handles NPU accelerator mapping from imported model configurations
@@ -54,11 +63,15 @@ The following components have been updated to support NPU selection:
    - Parses "npu" from JSON configuration files
    - Enables model definitions to specify NPU compatibility
 
+6. **Dependencies** (`libs.versions.toml`, `build.gradle.kts`)
+   - Added TensorFlow Lite 2.14.0 with full NNAPI support
+   - Includes GPU delegate and support libraries
+
 ## Usage
 
 ### For Users
 
-> **Note**: Currently, selecting NPU will use GPU acceleration due to LiteRT library limitations. This provides the best available performance until native NPU support is added to LiteRT.
+> **Note**: The app attempts to use NNAPI for NPU acceleration. Check the logs to see if NNAPI is available in your LiteRT version. If not available, GPU acceleration is used automatically.
 
 #### Selecting NPU Acceleration
 
@@ -66,8 +79,9 @@ When running a model:
 
 1. Open the model configuration (gear icon)
 2. Select "NPU" from the "Choose accelerator" options
-3. The model will be reinitialized (currently using GPU backend)
-4. Future LiteRT updates will enable true NPU acceleration without app changes
+3. The model will be reinitialized
+4. Check logs to confirm if NNAPI backend was used or if GPU fallback occurred
+5. If NNAPI is available, true NPU acceleration will be enabled
 
 #### Importing Models with NPU Support
 
@@ -151,24 +165,35 @@ NPU acceleration is most beneficial for:
 
 ## Limitations
 
-1. **LiteRT Framework Limitation**: NPU acceleration for LLMs is not yet available in LiteRT library
-   - Currently falls back to GPU when NPU is selected
-   - GPU provides the best available performance for LLMs
-   - Infrastructure ready for future LiteRT NPU support
+1. **LiteRT NNAPI Availability**: NNAPI backend may not be available in current LiteRT version
+   - App uses reflection to detect availability
+   - Falls back to GPU automatically if unavailable
+   - Check logs for "NPU acceleration enabled via NNAPI" message
 2. **Device Support**: Not all Android devices have NPU hardware
-3. **Future Updates**: True NPU acceleration will be enabled when LiteRT adds support
-4. **Current Performance**: Selecting NPU currently equals GPU performance
+3. **NNAPI Compatibility**: Some LLM architectures may have limited NNAPI optimization
+4. **Fallback Behavior**: GPU provides excellent performance when NNAPI unavailable
 
 ## Troubleshooting
 
-### NPU Selection Not Improving Performance
+### Checking NPU Status
 
-NPU selection currently uses GPU backend due to LiteRT limitations:
+To verify if NPU/NNAPI is being used:
 
-1. **Current Behavior**: NPU selection maps to GPU acceleration
-2. **Expected Performance**: Same as GPU (best available for LLMs)
-3. **Check Logs**: Look for "NPU selected but not directly supported" message
-4. **Future Updates**: Will automatically use NPU when LiteRT adds support
+1. **Enable Logging**: Use `adb logcat` or Android Studio Logcat
+2. **Filter for TAG**: Search for "AGLlmChatModelHelper"
+3. **Look for Messages**:
+   - ✅ "NPU acceleration enabled via NNAPI backend" = NPU working
+   - ⚠️ "NNAPI backend not available" = Using GPU fallback
+   - ⚠️ "Error accessing NNAPI backend" = Check LiteRT version
+
+### NPU Not Working
+
+If you see fallback messages:
+
+1. **LiteRT Version**: Current version may not include NNAPI backend
+2. **Update LiteRT**: Wait for future LiteRT releases with NNAPI support
+3. **GPU Performance**: GPU fallback provides excellent performance
+4. **Device Compatibility**: Ensure device has NPU hardware
 
 ### Model Initialization Errors
 
