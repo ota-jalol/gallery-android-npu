@@ -48,6 +48,7 @@ For users without Google Play access, install the apk from the [**latest release
 *   **LiteRT:** Lightweight runtime for optimized model execution.
 *   **LLM Inference API:** Powering on-device Large Language Models.
 *   **Hugging Face Integration:** For model discovery and download.
+*   **NPU Support:** Hardware acceleration via Neural Processing Units for improved performance.
 
 ## ⌨️ Development
 
