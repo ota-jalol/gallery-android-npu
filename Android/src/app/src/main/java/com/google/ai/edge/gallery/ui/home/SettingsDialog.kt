@@ -92,6 +92,7 @@ fun SettingsDialog(
   curThemeOverride: Theme,
   modelManagerViewModel: ModelManagerViewModel,
   onDismissed: () -> Unit,
+  onOpenNpuTest: (() -> Unit)? = null,
 ) {
   var selectedTheme by remember { mutableStateOf(curThemeOverride) }
   var hfToken by remember { mutableStateOf(modelManagerViewModel.getTokenStatusAndData().data) }
@@ -315,6 +316,20 @@ fun SettingsDialog(
               style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
             )
             OutlinedButton(onClick = { showTos = true }) { Text("View Terms of Services") }
+          }
+
+          // NPU Test & Logs
+          if (onOpenNpuTest != null) {
+            Column(modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}) {
+              Text(
+                "NPU Diagnostics",
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
+              )
+              OutlinedButton(onClick = {
+                onDismissed()
+                onOpenNpuTest()
+              }) { Text("NPU Test & Logs") }
+            }
           }
         }
 

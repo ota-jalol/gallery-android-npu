@@ -70,12 +70,14 @@ import com.google.ai.edge.gallery.ui.home.HomeScreen
 import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManager
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
+import com.google.ai.edge.gallery.ui.nputest.NpuTestScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 private const val TAG = "AGGalleryNavGraph"
 private const val ROUTE_PLACEHOLDER = "placeholder"
 private const val ROUTE_MODEL = "route_model"
+private const val ROUTE_NPU_TEST = "route_npu_test"
 private const val ENTER_ANIMATION_DURATION_MS = 500
 private val ENTER_ANIMATION_EASING = EaseOutExpo
 private const val ENTER_ANIMATION_DELAY_MS = 100
@@ -151,6 +153,9 @@ fun GalleryNavHost(
       showModelManager = true
       firebaseAnalytics?.logEvent("capability_select", bundleOf("capability_name" to task.id))
     },
+    navigateToNpuTest = {
+      navController.navigate(ROUTE_NPU_TEST)
+    },
   )
 
   // Model manager.
@@ -184,6 +189,17 @@ fun GalleryNavHost(
     // Having a non-empty placeholder here is needed to make the exit transition below work.
     // We can't have an empty Text here because it will block TalkBack.
     composable(route = ROUTE_PLACEHOLDER) { Box {} }
+
+    // NPU Test screen
+    composable(
+      route = ROUTE_NPU_TEST,
+      enterTransition = { slideEnter() },
+      exitTransition = { slideExit() },
+    ) {
+      NpuTestScreen(
+        onNavigateBack = { navController.navigateUp() }
+      )
+    }
 
     composable(
       route = "$ROUTE_MODEL/{taskId}/{modelName}",

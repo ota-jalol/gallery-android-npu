@@ -147,22 +147,36 @@ object LlmChatModelHelper {
   }
 
   private fun resolveNnapiBackendOrNull(): Backend? {
-    return try {
-      val backendField = Backend::class.java.getDeclaredField("NNAPI")
-      val backend = backendField.get(null) as? Backend
-      if (backend == null) {
-        Log.w(TAG, "NNAPI backend field is null; treating as unavailable")
-      } else {
-        Log.d(TAG, "NNAPI backend detected in LiteRT")
+    // First try to find NNAPI by reflection
+    val possibleNames = listOf("NNAPI", "NPU", "DSP", "HEXAGON")
+    
+    for (name in possibleNames) {
+      try {
+        val backendField = Backend::class.java.getDeclaredField(name)
+        val backend = backendField.get(null) as? Backend
+        if (backend != null) {
+          Log.d(TAG, "Found NPU-like backend: $name")
+          return backend
+        }
+      } catch (e: NoSuchFieldException) {
+        // Try next name
+      } catch (e: Exception) {
+        Log.w(TAG, "Failed to access backend $name: ${e.message}")
       }
-      backend
-    } catch (e: NoSuchFieldException) {
-      Log.w(TAG, "NNAPI backend not present in LiteRT: ${e.message}")
-      null
-    } catch (e: Exception) {
-      Log.w(TAG, "Failed to access NNAPI backend: ${e.message}")
-      null
     }
+    
+    // Log all available backends for debugging
+    try {
+      val backends = Backend::class.java.enumConstants
+      if (backends != null) {
+        Log.d(TAG, "Available backends: ${backends.joinToString { it.toString() }}")
+      }
+    } catch (e: Exception) {
+      Log.w(TAG, "Failed to list backends: ${e.message}")
+    }
+    
+    Log.w(TAG, "No NNAPI/NPU backend found in LiteRT")
+    return null
   }
 
   /**
@@ -170,31 +184,35 @@ object LlmChatModelHelper {
    */
   private fun resolveNpuBackend(loadResult: NpuLoadResult): Backend? {
     if (loadResult !is NpuLoadResult.Success) {
+      Log.d(TAG, "NPU runtime not loaded: $loadResult")
       return null
     }
 
     // Try to get vendor-specific backend from LiteRT
-    val backendName = when (loadResult.vendor) {
-      NpuVendor.QUALCOMM -> "QNN_HTP"
-      NpuVendor.GOOGLE_TENSOR -> "GOOGLE_TENSOR"
-      NpuVendor.MEDIATEK -> "MEDIATEK_APU"
-      else -> return null
+    val possibleNames = when (loadResult.vendor) {
+      NpuVendor.QUALCOMM -> listOf("QNN_HTP", "QNN", "HEXAGON", "DSP", "NPU", "NNAPI")
+      NpuVendor.GOOGLE_TENSOR -> listOf("GOOGLE_TENSOR", "TENSOR", "TPU", "NPU", "NNAPI")
+      NpuVendor.MEDIATEK -> listOf("MEDIATEK_APU", "APU", "NPU", "NNAPI")
+      else -> listOf("NPU", "NNAPI")
     }
 
-    return try {
-      val backendField = Backend::class.java.getDeclaredField(backendName)
-      val backend = backendField.get(null) as? Backend
-      if (backend != null) {
-        Log.d(TAG, "Vendor NPU backend $backendName detected")
+    for (name in possibleNames) {
+      try {
+        val backendField = Backend::class.java.getDeclaredField(name)
+        val backend = backendField.get(null) as? Backend
+        if (backend != null) {
+          Log.d(TAG, "Vendor NPU backend found: $name for ${loadResult.vendor}")
+          return backend
+        }
+      } catch (e: NoSuchFieldException) {
+        // Try next name
+      } catch (e: Exception) {
+        Log.w(TAG, "Failed to access vendor backend $name: ${e.message}")
       }
-      backend
-    } catch (e: NoSuchFieldException) {
-      Log.w(TAG, "Vendor backend $backendName not present in LiteRT")
-      null
-    } catch (e: Exception) {
-      Log.w(TAG, "Failed to access vendor backend $backendName: ${e.message}")
-      null
     }
+
+    Log.w(TAG, "Vendor backend not found for ${loadResult.vendor}, available backends logged above")
+    return null
   }
 
   private fun buildBackendLabel(
