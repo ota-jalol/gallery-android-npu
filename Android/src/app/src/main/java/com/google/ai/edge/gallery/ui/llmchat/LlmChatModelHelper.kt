@@ -19,6 +19,9 @@ package com.google.ai.edge.gallery.ui.llmchat
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
+import com.google.ai.edge.gallery.common.NpuLoadResult
+import com.google.ai.edge.gallery.common.NpuRuntimeLoader
+import com.google.ai.edge.gallery.common.NpuVendor
 import com.google.ai.edge.gallery.common.cleanUpMediapipeTaskErrorMessage
 import com.google.ai.edge.gallery.data.Accelerator
 import com.google.ai.edge.gallery.data.ConfigKeys
@@ -77,13 +80,20 @@ object LlmChatModelHelper {
     val shouldEnableImage = supportImage
     val shouldEnableAudio = supportAudio
     Log.d(TAG, "Enable image: $shouldEnableImage, enable audio: $shouldEnableAudio")
+
+    // Try to load vendor-specific NPU runtime
+    val npuLoadResult = NpuRuntimeLoader.loadNpuRuntime(context)
+    val npuBackend = resolveNpuBackend(npuLoadResult)
     val nnapiBackend = resolveNnapiBackendOrNull()
 
     val backendCandidates: List<Backend> =
       when (accelerator) {
         Accelerator.CPU.label -> listOf(Backend.CPU)
         Accelerator.GPU.label -> listOf(Backend.GPU, Backend.CPU)
-        Accelerator.NPU.label -> listOfNotNull(nnapiBackend, Backend.GPU, Backend.CPU)
+        Accelerator.NPU.label -> {
+          // Priority: Vendor NPU -> NNAPI -> GPU -> CPU
+          listOfNotNull(npuBackend, nnapiBackend, Backend.GPU, Backend.CPU)
+        }
         else -> listOf(Backend.CPU)
       }.distinct()
 
@@ -121,7 +131,7 @@ object LlmChatModelHelper {
               tools = tools,
             )
           )
-        val backendLabel = buildBackendLabel(candidateBackend, nnapiBackend)
+        val backendLabel = buildBackendLabel(candidateBackend, nnapiBackend, npuBackend, npuLoadResult)
         Log.d(TAG, "Using backend: $backendLabel")
         model.instance =
           LlmModelInstance(engine = engine, conversation = conversation, backendLabel = backendLabel)
@@ -155,11 +165,54 @@ object LlmChatModelHelper {
     }
   }
 
-  private fun buildBackendLabel(backend: Backend, nnapiBackend: Backend?): String {
+  /**
+   * Resolve vendor-specific NPU backend based on load result.
+   */
+  private fun resolveNpuBackend(loadResult: NpuLoadResult): Backend? {
+    if (loadResult !is NpuLoadResult.Success) {
+      return null
+    }
+
+    // Try to get vendor-specific backend from LiteRT
+    val backendName = when (loadResult.vendor) {
+      NpuVendor.QUALCOMM -> "QNN_HTP"
+      NpuVendor.GOOGLE_TENSOR -> "GOOGLE_TENSOR"
+      NpuVendor.MEDIATEK -> "MEDIATEK_APU"
+      else -> return null
+    }
+
+    return try {
+      val backendField = Backend::class.java.getDeclaredField(backendName)
+      val backend = backendField.get(null) as? Backend
+      if (backend != null) {
+        Log.d(TAG, "Vendor NPU backend $backendName detected")
+      }
+      backend
+    } catch (e: NoSuchFieldException) {
+      Log.w(TAG, "Vendor backend $backendName not present in LiteRT")
+      null
+    } catch (e: Exception) {
+      Log.w(TAG, "Failed to access vendor backend $backendName: ${e.message}")
+      null
+    }
+  }
+
+  private fun buildBackendLabel(
+    backend: Backend,
+    nnapiBackend: Backend?,
+    npuBackend: Backend?,
+    npuLoadResult: NpuLoadResult
+  ): String {
     return when {
       backend == Backend.CPU -> Accelerator.CPU.label
       backend == Backend.GPU -> Accelerator.GPU.label
       nnapiBackend != null && backend === nnapiBackend -> "${Accelerator.NPU.label} (NNAPI)"
+      npuBackend != null && backend === npuBackend -> {
+        when (npuLoadResult) {
+          is NpuLoadResult.Success -> "${Accelerator.NPU.label} (${npuLoadResult.description})"
+          else -> Accelerator.NPU.label
+        }
+      }
       else -> backend.toString()
     }
   }
