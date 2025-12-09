@@ -47,3 +47,6 @@ dependencyResolutionManagement {
 rootProject.name = "AI Edge Gallery"
 
 include(":app")
+
+// NPU Runtime native libraries are directly included in app/src/main/jniLibs/arm64-v8a
+// Dynamic feature modules can be enabled for AAB/Play Store modular delivery if needed

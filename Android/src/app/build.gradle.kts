@@ -51,7 +51,8 @@ android {
     abi {
       isEnable = true
       reset()
-      include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+      // Only arm64-v8a is supported for NPU runtime libraries
+      include("arm64-v8a")
       isUniversalApk = true
     }
   }
@@ -74,6 +75,23 @@ android {
   buildFeatures {
     compose = true
     buildConfig = true
+  }
+
+  // Configure jniLibs from SDK modules - each module contains vendor-specific NPU libraries
+  sourceSets {
+    getByName("main") {
+      jniLibs.srcDirs(
+        // Qualcomm HTP runtimes for different Snapdragon generations
+        "src/main/jniLibs/qualcomm_runtime_v69/src/main/jni",
+        "src/main/jniLibs/qualcomm_runtime_v73/src/main/jni",
+        "src/main/jniLibs/qualcomm_runtime_v75/src/main/jni",
+        "src/main/jniLibs/qualcomm_runtime_v79/src/main/jni",
+        // Google Tensor (Pixel 6+)
+        "src/main/jniLibs/google_tensor_runtime/src/main/jni",
+        // MediaTek Dimensity
+        "src/main/jniLibs/mediatek_runtime/src/main/jni"
+      )
+    }
   }
 }
 
