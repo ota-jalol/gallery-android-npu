@@ -91,9 +91,52 @@ jobs:
 
       - name: Merge NPU runtime libraries
         run: |
-          cd app/src/main/jniLibs
-          chmod +x merge_libs.sh
-          ./merge_libs.sh
+          cd app/src/main
+          chmod +x jniLibs/merge_libs.sh
+          
+          # Create clean jniLibs structure
+          mkdir -p jniLibs_merged/arm64-v8a
+          
+          # Copy Qualcomm libraries with version suffix
+          for version in 69 73 75 79; do
+            SRC_DIR="jniLibs/qualcomm_runtime_v${version}/src/main/jni/arm64-v8a"
+            if [ -d "$SRC_DIR" ]; then
+              echo "Processing Qualcomm v${version}..."
+              for so_file in "$SRC_DIR"/*.so; do
+                if [ -f "$so_file" ]; then
+                  filename=$(basename "$so_file")
+                  if [[ "$filename" == *"V${version}"* ]]; then
+                    new_name="$filename"
+                  else
+                    new_name="${filename%.so}V${version}.so"
+                  fi
+                  cp "$so_file" "jniLibs_merged/arm64-v8a/$new_name"
+                  echo "  - $filename -> $new_name"
+                fi
+              done
+            fi
+          done
+          
+          # Copy Google Tensor libraries
+          if [ -d "jniLibs/google_tensor_runtime/src/main/jni/arm64-v8a" ]; then
+            echo "Processing Google Tensor..."
+            cp jniLibs/google_tensor_runtime/src/main/jni/arm64-v8a/*.so jniLibs_merged/arm64-v8a/ 2>/dev/null || true
+          fi
+          
+          # Copy MediaTek libraries
+          if [ -d "jniLibs/mediatek_runtime/src/main/jni/arm64-v8a" ]; then
+            echo "Processing MediaTek..."
+            cp jniLibs/mediatek_runtime/src/main/jni/arm64-v8a/*.so jniLibs_merged/arm64-v8a/ 2>/dev/null || true
+          fi
+          
+          # Replace jniLibs with merged version
+          rm -rf jniLibs
+          mv jniLibs_merged jniLibs
+          
+          echo "Final jniLibs structure:"
+          ls -la jniLibs/
+          ls -la jniLibs/arm64-v8a/
+          echo "Total .so files: $(ls -1 jniLibs/arm64-v8a/*.so | wc -l)"
 
       - name: Build Release APK
         run: ./gradlew assembleRelease --stacktrace

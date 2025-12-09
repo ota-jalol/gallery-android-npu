@@ -6,11 +6,11 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MERGED_DIR="$SCRIPT_DIR/merged/arm64-v8a"
+OUTPUT_DIR="$SCRIPT_DIR/arm64-v8a"
 
-# Create merged directory
-rm -rf "$SCRIPT_DIR/merged"
-mkdir -p "$MERGED_DIR"
+# Clean and create output directory
+rm -rf "$OUTPUT_DIR"
+mkdir -p "$OUTPUT_DIR"
 
 echo "Merging NPU runtime libraries..."
 
@@ -31,7 +31,7 @@ for version in 69 73 75 79; do
                     # Add version suffix before .so (e.g., libQnnSystem.so -> libQnnSystemV69.so)
                     new_name="${filename%.so}V${version}.so"
                 fi
-                cp "$so_file" "$MERGED_DIR/$new_name"
+                cp "$so_file" "$OUTPUT_DIR/$new_name"
                 echo "  - $filename -> $new_name"
             fi
         done
@@ -44,7 +44,7 @@ if [ -d "$SCRIPT_DIR/google_tensor_runtime/src/main/jni/arm64-v8a" ]; then
     for so_file in "$SCRIPT_DIR/google_tensor_runtime/src/main/jni/arm64-v8a"/*.so; do
         if [ -f "$so_file" ]; then
             filename=$(basename "$so_file")
-            cp "$so_file" "$MERGED_DIR/$filename"
+            cp "$so_file" "$OUTPUT_DIR/$filename"
             echo "  - $filename"
         fi
     done
@@ -56,14 +56,14 @@ if [ -d "$SCRIPT_DIR/mediatek_runtime/src/main/jni/arm64-v8a" ]; then
     for so_file in "$SCRIPT_DIR/mediatek_runtime/src/main/jni/arm64-v8a"/*.so; do
         if [ -f "$so_file" ]; then
             filename=$(basename "$so_file")
-            cp "$so_file" "$MERGED_DIR/$filename"
+            cp "$so_file" "$OUTPUT_DIR/$filename"
             echo "  - $filename"
         fi
     done
 fi
 
 echo ""
-echo "Merged libraries in $MERGED_DIR:"
-ls -la "$MERGED_DIR/"
+echo "Merged libraries in $OUTPUT_DIR:"
+ls -la "$OUTPUT_DIR/"
 echo ""
-echo "Done! Total files: $(ls -1 "$MERGED_DIR/" | wc -l)"
+echo "Done! Total files: $(ls -1 "$OUTPUT_DIR/" | wc -l)"

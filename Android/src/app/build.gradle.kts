@@ -77,12 +77,8 @@ android {
     buildConfig = true
   }
 
-  // Configure jniLibs - all native libraries merged into single folder by merge_libs.sh
-  sourceSets {
-    getByName("main") {
-      jniLibs.srcDirs("src/main/jniLibs/merged")
-    }
-  }
+  // jniLibs uses default location: src/main/jniLibs
+  // merge_libs.sh creates arm64-v8a/ folder with all .so files
 }
 
 dependencies {
