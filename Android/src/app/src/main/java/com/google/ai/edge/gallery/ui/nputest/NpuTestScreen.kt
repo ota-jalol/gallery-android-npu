@@ -146,32 +146,103 @@ fun NpuTestScreen(
         // Native Libraries Check
         addLog(LogLevel.INFO, "")
         addLog(LogLevel.INFO, "=== Native Library Loading Test ===")
+        
+        // Check system libraries first (provided by device, not bundled)
+        addLog(LogLevel.INFO, "-- System Libraries (device-provided) --")
+        val systemLibs = listOf(
+            "cdsprpc" to "Compute DSP RPC (required for NPU)",
+            "adsprpc" to "Audio DSP RPC"
+        )
+        var hasCdsprpc = false
+        systemLibs.forEach { (lib, desc) ->
+            try {
+                System.loadLibrary(lib)
+                addLog(LogLevel.SUCCESS, "lib$lib.so: Available ✓ ($desc)")
+                if (lib == "cdsprpc") hasCdsprpc = true
+            } catch (e: UnsatisfiedLinkError) {
+                val msg = e.message?.take(50) ?: "not found"
+                addLog(LogLevel.WARNING, "lib$lib.so: Not available")
+                addLog(LogLevel.DEBUG, "  → $msg")
+            }
+        }
+        
+        if (!hasCdsprpc && npuInfo.vendor == NpuVendor.QUALCOMM) {
+            addLog(LogLevel.WARNING, "")
+            addLog(LogLevel.WARNING, "⚠️ libcdsprpc.so not accessible!")
+            addLog(LogLevel.INFO, "This is a system library required for DSP/NPU.")
+            addLog(LogLevel.INFO, "Possible reasons:")
+            addLog(LogLevel.INFO, "  - SELinux restrictions")
+            addLog(LogLevel.INFO, "  - Vendor namespace isolation")
+            addLog(LogLevel.INFO, "  - Library not in accessible path")
+        }
+
+        // App-bundled libraries
+        addLog(LogLevel.INFO, "")
+        addLog(LogLevel.INFO, "-- App Libraries (bundled in APK) --")
         val librariesToTest = if (npuInfo.vendor == NpuVendor.QUALCOMM) {
             val v = npuInfo.qualcommHtpVersion.version
+            // Note: Stub and Skel are loaded internally by QNN runtime, not directly
+            // Stub requires libcdsprpc.so (system lib)
+            // Skel runs on DSP, not loaded via System.loadLibrary
             listOf(
-                "QnnSystemV$v",
-                "QnnHtpV$v",
-                "QnnHtpV${v}Stub",
-                "QnnHtpV${v}Skel",
-                "LiteRtDispatch_QualcommV$v"
+                "QnnSystemV$v" to "QNN System runtime",
+                "QnnHtpV$v" to "QNN HTP backend"
             )
         } else if (npuInfo.vendor == NpuVendor.GOOGLE_TENSOR) {
-            listOf("LiteRtDispatch_GoogleTensor")
+            listOf("LiteRtDispatch_GoogleTensor" to "Google Tensor dispatch")
         } else if (npuInfo.vendor == NpuVendor.MEDIATEK) {
-            listOf("LiteRtDispatch_Mediatek")
+            listOf("LiteRtDispatch_Mediatek" to "MediaTek dispatch")
         } else {
             emptyList()
         }
 
-        librariesToTest.forEach { lib ->
+        librariesToTest.forEach { (lib, desc) ->
             try {
                 System.loadLibrary(lib)
-                addLog(LogLevel.SUCCESS, "lib$lib.so: Loaded ✓")
+                addLog(LogLevel.SUCCESS, "lib$lib.so: Loaded ✓ ($desc)")
             } catch (e: UnsatisfiedLinkError) {
-                addLog(LogLevel.ERROR, "lib$lib.so: ${e.message?.take(50)}...")
+                val msg = e.message ?: ""
+                when {
+                    msg.contains("not found") -> {
+                        val missing = msg.substringAfter("library ").substringBefore(" not found")
+                        addLog(LogLevel.ERROR, "lib$lib.so: Missing dependency: $missing")
+                    }
+                    else -> addLog(LogLevel.ERROR, "lib$lib.so: ${msg.take(60)}...")
+                }
             } catch (e: Exception) {
                 addLog(LogLevel.ERROR, "lib$lib.so: ${e.message}")
             }
+        }
+        
+        // Info about Stub/Skel
+        if (npuInfo.vendor == NpuVendor.QUALCOMM) {
+            val v = npuInfo.qualcommHtpVersion.version
+            addLog(LogLevel.INFO, "")
+            addLog(LogLevel.INFO, "-- DSP Libraries (loaded internally by QNN) --")
+            addLog(LogLevel.DEBUG, "libQnnHtpV${v}Stub.so: Requires libcdsprpc.so")
+            addLog(LogLevel.DEBUG, "libQnnHtpV${v}Skel.so: Runs on Hexagon DSP")
+        }
+
+        // Summary and explanation
+        addLog(LogLevel.INFO, "")
+        addLog(LogLevel.INFO, "=== Summary ===")
+        
+        // Check if LiteRT has NPU backend
+        val hasNpuBackend = try {
+            val backends = Backend::class.java.enumConstants
+            backends?.any { it.toString().contains("NPU") || it.toString().contains("QNN") } == true
+        } catch (e: Exception) { false }
+        
+        if (!hasNpuBackend) {
+            addLog(LogLevel.WARNING, "LiteRT LLM library only supports CPU & GPU backends")
+            addLog(LogLevel.INFO, "NPU acceleration requires:")
+            addLog(LogLevel.INFO, "  1. LiteRT with NPU/QNN backend support")
+            addLog(LogLevel.INFO, "  2. Model compiled for NPU (QNN/NNAPI)")
+            addLog(LogLevel.INFO, "  3. Device with libcdsprpc.so (DSP RPC)")
+            addLog(LogLevel.INFO, "")
+            addLog(LogLevel.INFO, "Current fallback: GPU > CPU")
+        } else {
+            addLog(LogLevel.SUCCESS, "LiteRT has NPU backend support!")
         }
 
         addLog(LogLevel.INFO, "")

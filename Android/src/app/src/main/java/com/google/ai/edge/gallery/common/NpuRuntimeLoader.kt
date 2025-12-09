@@ -72,6 +72,12 @@ object NpuRuntimeLoader {
   /**
    * Load Qualcomm HTP runtime libraries.
    * Libraries are named with version suffix: libQnnSystemV73.so, libQnnHtpV73.so, etc.
+   * 
+   * Note: Stub and Skel files are NOT loaded directly:
+   * - Stub requires libcdsprpc.so (system library, loaded by QNN internally)
+   * - Skel runs on Hexagon DSP, not loaded via System.loadLibrary
+   * 
+   * LiteRtDispatch is loaded by LiteRT runtime, not by us directly.
    */
   private fun loadQualcommRuntime(npuInfo: NpuInfo): NpuLoadResult {
     val version = npuInfo.qualcommHtpVersion.version
@@ -79,35 +85,36 @@ object NpuRuntimeLoader {
       return NpuLoadResult.NotSupported("Unknown Qualcomm HTP version")
     }
 
-    return try {
-      // Load Qualcomm QNN libraries in order
-      // Libraries are renamed with version suffix to avoid conflicts
-      val libraries = listOf(
-        "QnnSystemV$version",           // libQnnSystemV73.so
-        "QnnHtpV$version",              // libQnnHtpV73.so
-        "QnnHtpV${version}Stub",        // libQnnHtpV73Stub.so
-        "QnnHtpV${version}Skel",        // libQnnHtpV73Skel.so
-        "LiteRtDispatch_QualcommV$version"  // libLiteRtDispatch_QualcommV73.so
-      )
+    var loadedCount = 0
+    val errors = mutableListOf<String>()
 
-      for (lib in libraries) {
-        try {
-          System.loadLibrary(lib)
-          Log.d(TAG, "Loaded library: lib$lib.so")
-        } catch (e: UnsatisfiedLinkError) {
-          Log.w(TAG, "Optional library not found: lib$lib.so")
-          // Some libraries may be optional, continue loading
-        }
+    // Core QNN libraries that we need to load
+    // These are the main runtime libraries
+    val coreLibraries = listOf(
+      "QnnSystemV$version",           // libQnnSystemV73.so - QNN System runtime
+      "QnnHtpV$version"               // libQnnHtpV73.so - QNN HTP backend
+    )
+
+    for (lib in coreLibraries) {
+      try {
+        System.loadLibrary(lib)
+        Log.d(TAG, "Loaded library: lib$lib.so")
+        loadedCount++
+      } catch (e: UnsatisfiedLinkError) {
+        val msg = e.message ?: "Unknown error"
+        Log.w(TAG, "Failed to load lib$lib.so: $msg")
+        errors.add("lib$lib.so: $msg")
       }
+    }
 
-      Log.i(TAG, "Qualcomm NPU runtime v$version loaded successfully")
+    return if (loadedCount > 0) {
+      Log.i(TAG, "Qualcomm NPU runtime v$version: loaded $loadedCount/${coreLibraries.size} libraries")
       NpuLoadResult.Success(
         vendor = NpuVendor.QUALCOMM,
-        description = "Qualcomm HTP v$version"
+        description = "Qualcomm HTP v$version ($loadedCount/${coreLibraries.size} libs)"
       )
-    } catch (e: Exception) {
-      Log.e(TAG, "Failed to load Qualcomm runtime: ${e.message}")
-      NpuLoadResult.Failed("Failed to load Qualcomm NPU runtime: ${e.message}")
+    } else {
+      NpuLoadResult.Failed("No QNN libraries could be loaded: ${errors.joinToString("; ")}")
     }
   }
 
