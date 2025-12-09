@@ -69,7 +69,7 @@ object DeviceUtils {
 
     Log.d(TAG, "Device detection - Hardware: $hardware, Board: $board, SoC: $soc, Chipset: $chipset")
 
-    // Check for Google Tensor
+    // Check for Google Tensor eee
     if (isGoogleTensor(hardware, board, soc)) {
       Log.d(TAG, "Detected Google Tensor NPU")
       return NpuInfo(
