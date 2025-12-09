@@ -89,6 +89,12 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      - name: Merge NPU runtime libraries
+        run: |
+          cd app/src/main/jniLibs
+          chmod +x merge_libs.sh
+          ./merge_libs.sh
+
       - name: Build Release APK
         run: ./gradlew assembleRelease --stacktrace
 

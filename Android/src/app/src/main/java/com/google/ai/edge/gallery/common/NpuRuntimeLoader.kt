@@ -71,6 +71,7 @@ object NpuRuntimeLoader {
 
   /**
    * Load Qualcomm HTP runtime libraries.
+   * Libraries are named with version suffix: libQnnSystemV73.so, libQnnHtpV73.so, etc.
    */
   private fun loadQualcommRuntime(npuInfo: NpuInfo): NpuLoadResult {
     val version = npuInfo.qualcommHtpVersion.version
@@ -80,12 +81,13 @@ object NpuRuntimeLoader {
 
     return try {
       // Load Qualcomm QNN libraries in order
+      // Libraries are renamed with version suffix to avoid conflicts
       val libraries = listOf(
-        "QnnSystem",
-        "QnnHtp",
-        "QnnHtpV${version}Stub",
-        "QnnHtpV${version}Skel",
-        "LiteRtDispatch_Qualcomm"
+        "QnnSystemV$version",           // libQnnSystemV73.so
+        "QnnHtpV$version",              // libQnnHtpV73.so
+        "QnnHtpV${version}Stub",        // libQnnHtpV73Stub.so
+        "QnnHtpV${version}Skel",        // libQnnHtpV73Skel.so
+        "LiteRtDispatch_QualcommV$version"  // libLiteRtDispatch_QualcommV73.so
       )
 
       for (lib in libraries) {

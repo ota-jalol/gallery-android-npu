@@ -77,20 +77,10 @@ android {
     buildConfig = true
   }
 
-  // Configure jniLibs from SDK modules - each module contains vendor-specific NPU libraries
+  // Configure jniLibs - all native libraries merged into single folder by merge_libs.sh
   sourceSets {
     getByName("main") {
-      jniLibs.srcDirs(
-        // Qualcomm HTP runtimes for different Snapdragon generations
-        "src/main/jniLibs/qualcomm_runtime_v69/src/main/jni",
-        "src/main/jniLibs/qualcomm_runtime_v73/src/main/jni",
-        "src/main/jniLibs/qualcomm_runtime_v75/src/main/jni",
-        "src/main/jniLibs/qualcomm_runtime_v79/src/main/jni",
-        // Google Tensor (Pixel 6+)
-        "src/main/jniLibs/google_tensor_runtime/src/main/jni",
-        // MediaTek Dimensity
-        "src/main/jniLibs/mediatek_runtime/src/main/jni"
-      )
+      jniLibs.srcDirs("src/main/jniLibs/merged")
     }
   }
 }
